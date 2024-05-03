@@ -17,7 +17,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ github.ref }}
 
       - name: Setup node ${{ env.NODE_VERSION }}
         uses: actions/setup-node@v4
@@ -38,4 +38,4 @@ jobs:
           git config --global user.name "GitHub Actions"
           git add dist/
           git commit -m "Update dist" || echo "No changes to commit"
-          git push origin main
+          git push origin ${{ github.ref }}
