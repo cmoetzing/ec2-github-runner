@@ -1,7 +1,7 @@
 const { EC2Client, RunInstancesCommand, TerminateInstancesCommand, waitUntilInstanceRunning } = require("@aws-sdk/client-ec2");
 const core = require('@actions/core');
 const config = require('./config');
-const buffer = require('buffer');
+
 const ec2Client = new EC2Client({
   region: config.input.region,
   maxAttempts: 5,
@@ -38,7 +38,8 @@ function buildUserDataScript(githubRegistrationToken, label) {
 }
 
 async function startEc2Instance(label, githubRegistrationToken) {
-  const userData = buildUserDataScript(githubRegistrationToken, label);
+  const userData = buildUserDataScript(githubRegistrationToken, label).join('\n');
+  const encodedUserData = Buffer.from(userData).toString('base64');
   const runInstancesCommandInput = {
     ImageId: config.input.ec2ImageId,
     InstanceType: config.input.ec2InstanceType,
@@ -51,7 +52,7 @@ async function startEc2Instance(label, githubRegistrationToken) {
       config.input.securityGroupId,
     ],
     SubnetId: config.input.subnetId,
-    UserData: buffer.from(userData.join('\n')).toString('base64'),
+    UserData: encodedUserData,
     DisableApiTermination: false,
     DryRun: false,
     EbsOptimized: true,
@@ -92,7 +93,6 @@ async function terminateEc2Instance() {
     const previousState = response.TerminatingInstances[0].PreviousState.Name;
     core.debug(`AWS EC2 instance ${config.input.ec2InstanceId} transitioned from ${previousState} to ${currentState}`);
     core.info(`AWS EC2 instance ${config.input.ec2InstanceId} is terminated`);
-    return;
   } catch (error) {
     core.error(`AWS EC2 instance ${config.input.ec2InstanceId} termination error`);
     throw error;
@@ -103,7 +103,6 @@ async function waitForInstanceRunning(ec2InstanceId) {
   try {
     await waitUntilInstanceRunning({ client: ec2Client, maxWaitTime: 300, minDelay: 10 }, { InstanceIds: [ ec2InstanceId ] })
     core.info(`AWS EC2 instance ${ec2InstanceId} is up and running`);
-    return;
   } catch (error) {
     core.error(`AWS EC2 instance ${ec2InstanceId} initialization error`);
     throw error;
